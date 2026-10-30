@@ -1,8 +1,19 @@
+# Environment & Secrets
 .env
-.venv/
-venv/
+*.env
+
+# Python Bytecode & Cache
 __pycache__/
-*.pyc
+*.py[cod]
+*.class
 .pytest_cache/
 
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Agent & Runtime Local State
 .adk/
+*.db
+*.sqlite3
