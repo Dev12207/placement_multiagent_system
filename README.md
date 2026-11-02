@@ -1,229 +1,205 @@
 <div align="center">
 
-# 🎓 Placement Agent
+# 🎓 Placement Multi-Agent System
 
-**A 4-agent career-prep system built on Google's Agent Development Kit (ADK)**
+**An Intelligent Multi-Agent Career Preparation and Placement Ecosystem built on Google's Agent Development Kit (ADK) and Gemini**
 
-![Python](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)
-![Google ADK](https://img.shields.io/badge/Google%20ADK-2.8.0-4285F4?logo=google&logoColor=white)
+![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
+![Google ADK](https://img.shields.io/badge/Google%20ADK-2.8.0+-4285F4?logo=google&logoColor=white)
 ![Gemini](https://img.shields.io/badge/model-gemini--flash--lite--latest-8E44AD)
 
 </div>
 
 ---
 
-## Table of Contents
+## 📌 Project Overview
 
-- [Clone the Repo](#clone-the-repo)
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Running the Project](#running-the-project)
-- [Deploy to GCP (Vertex AI Agent Engine)](#deploy-to-gcp-vertex-ai-agent-engine)
-- [Troubleshooting](#troubleshooting)
+The **Placement Multi-Agent System** is an end-to-end AI career companion designed to streamline placement and job preparation for students and candidates. Powered by Google's Agent Development Kit (ADK) and Google Gemini, the system employs a hierarchical multi-agent architecture where a central coordinator delegates tasks to specialized sub-agents.
+
+Whether evaluating candidate fit against complex job descriptions, identifying skill gaps, matching candidates with industry roles, or conducting interactive turn-by-turn mock technical interviews, the system delivers structured, actionable, and personalized guidance.
 
 ---
 
-## Clone the Repo
+## 📋 Prerequisites
 
-```bash
-git clone https://github.com/voidgremlin19/placement_multiagent_system.git
-cd placement_multiagent_system
-```
-
----
-
-## Prerequisites
-
-- **Python 3.11+**
-- A **Google AI Studio API key** — free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-- [`uv`](https://github.com/astral-sh/uv) (recommended) or plain `pip`
+- **Python**: `3.11` or higher
+- **Gemini API Access**: A valid **Google AI Studio API key** ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) or configured Google Cloud Vertex AI credentials
+- **Google Agent Development Kit (ADK)**: `google-adk >= 2.8.0` for multi-agent orchestration and runtime interfaces
+- **Environment Configuration**: An environment setup defining `GOOGLE_API_KEY` and optional Vertex AI routing flags (`GOOGLE_GENAI_USE_VERTEXAI`)
 
 ---
 
-## Setup
+## 🏛️ System Architecture
 
-**1. Create and activate a virtual environment**
+The project leverages a **Coordinator-Specialist** design pattern. The root agent (`placement_coordinator`) acts as the user-facing entry point, interpreting user intent and seamlessly handing off context to domain-specific specialist agents.
 
-```bash
-uv venv
-source .venv/bin/activate
-```
-
-**2. Install dependencies**
-
-```bash
-uv pip install -r requirements.txt
-```
-
-<details>
-<summary>Using plain pip instead</summary>
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-</details>
-
-**3. Configure your API key**
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and paste your key:
-
-```dotenv
-GOOGLE_API_KEY="AIza..."
-GOOGLE_GENAI_USE_VERTEXAI=FALSE
-```
-
-**4. Verify the install**
-
-```bash
-python -c "from placement_agent.coordinator import root_agent; print(root_agent.name, 'OK')"
-```
-
-You should see `placement_coordinator OK`.
-
----
-
-## Running the Project
-
-Everything runs through ADK's own CLI, pointed at the project root (where `agent.py` lives).
-
-### `adk web .` — dev console (recommended)
-
-```bash
-adk web --port 8001 .
-```
-
-Open **http://127.0.0.1:8001** — chat UI, event/trace inspector, and an agent-graph view.
-
-### `adk run .` — terminal chat
-
-```bash
-adk run .
-```
-
-A plain terminal conversation against `root_agent`, no browser needed.
-
-### `adk api_server .` — REST API
-
-```bash
-adk api_server --port 8000 .
-```
-
-Exposes the same agent graph as a REST API (session creation + `/run`/`/run_sse` endpoints).
-
-> All three commands run the exact same `root_agent` defined in `agent.py`. Run more than one at once, on different ports — they don't conflict.
-
-### Parsing a resume file (PDF/DOCX/TXT)
-
-Resume parsing isn't wired up as an in-chat upload — run it yourself first, then paste the printed text into the chat:
-
-```bash
-python -c "
-from placement_agent.tools.resume_parser import extract_resume_text
-with open('resume.pdf', 'rb') as f:
-    print(extract_resume_text(f.read(), 'resume.pdf'))
-"
+```mermaid
+graph TD
+    User([👤 Candidate / User]) <--> Coordinator[🧭 Placement Coordinator\nRoot Agent]
+    
+    Coordinator -->|Resume vs JD Gap Analysis| ResumeAgent[📄 Resume Analyzer]
+    Coordinator -->|Career Path & Skill Matching| RoleAgent[🎯 Role Suggester]
+    Coordinator -->|Technical Mock Interviews| CoachAgent[🎙️ Interview Coach]
+    
+    ResumeAgent --> ToolResume[🛠️ compare_resume_jd\nGemini Structured Extraction]
+    RoleAgent --> ToolMatch[🛠️ match_roles_to_skills\nScoring Algorithm]
+    CoachAgent --> ToolQBank[🛠️ get_interview_question\nInteractive Question Bank]
+    
+    ToolMatch -.-> RoleData[(📊 role_skill_map.json\n10 Target Domains)]
+    ToolQBank -.-> QuestionData[(📚 interview_question_bank.json\n6 Role Tracks)]
 ```
 
 ---
 
-## Deploy to GCP (Vertex AI Agent Engine)
+## 🤖 Agents & Capabilities
 
-Deploys the same `placement_coordinator` agent graph to Vertex AI Agent Engine — Google's managed, serverless runtime for ADK agents.
+### 1. 🧭 Placement Coordinator (`placement_coordinator`)
+* **Role**: Root orchestrator and conversational router.
+* **Responsibilities**:
+  - Acts as the primary interface for candidate interactions.
+  - Understands candidate intent and asks clarifying questions when requests are ambiguous.
+  - Dynamically routes conversations to the appropriate specialist agent (`resume_analyzer`, `role_suggester`, or `interview_coach`) without attempting manual execution.
 
-### Prerequisites
+---
 
-- A GCP project with **billing enabled**
-- The Vertex AI API enabled: `gcloud services enable aiplatform.googleapis.com`
-- Application Default Credentials: `gcloud auth application-default login`
-- A Cloud Storage bucket in the same project/region:
+### 2. 📄 Resume Analyzer (`resume_analyzer`)
+* **Role**: ATS-style resume and job description (JD) matching specialist.
+* **Responsibilities**:
+  - Ingests raw resume content and job descriptions.
+  - Performs LLM-driven structured skill gap analysis.
+  - Classifies candidate fit into **Strong**, **Partial**, or **Weak** match tiers.
+  - Surfaces:
+    - Overlapping / matched skills.
+    - Missing required skills (critical blockers).
+    - Missing preferred skills (value-add areas).
+    - Qualitative verdict and actionable next steps for the candidate.
+
+---
+
+### 3. 🎯 Role Suggester (`role_suggester`)
+* **Role**: Career advisor matching candidate skillsets to industry job profiles.
+* **Responsibilities**:
+  - Accepts a candidate's technical skills and proficiencies.
+  - Uses a weighted matching algorithm (70% required skills / 30% preferred skills).
+  - Evaluates candidate skills against 10 comprehensive industry roles:
+    - *Software Development Engineer (SDE)*
+    - *Frontend Engineer*
+    - *Backend Engineer*
+    - *Data Engineer*
+    - *Machine Learning Engineer*
+    - *Data Scientist*
+    - *DevOps / SRE Engineer*
+    - *Product Manager*
+    - *AI / LLM Engineer*
+    - *Cloud / Solutions Architect*
+  - Recommends the top 3 best-fit roles accompanied by match scores, aligned skills, missing competencies, and targeted advice for bridging skill gaps.
+
+---
+
+### 4. 🎙️ Interview Coach (`interview_coach`)
+* **Role**: Interactive technical and behavioral mock interview mentor.
+* **Responsibilities**:
+  - Delivers dynamic, turn-by-turn mock interview sessions across 6 distinct categories:
+    - **SDE** (Algorithms, System Design, OOP, Git, REST APIs)
+    - **Data** (SQL, ETL Pipelines, Spark, Warehousing)
+    - **ML** (Model Evaluation, Loss Functions, Overfitting, Transformer Architecture)
+    - **DevOps** (Docker, Kubernetes, CI/CD, Observability)
+    - **PM** (PRD Writing, Metric Prioritization, Feature Execution)
+    - **General** (STAR Framework, Conflict Resolution, Strengths/Weaknesses)
+  - Guides candidates one question at a time without revealing hints upfront.
+  - Evaluates candidate responses against curated key criteria and benchmarks.
+  - Provides constructive feedback, highlighting strong points, missing elements, and assigns an objective rating (1–5).
+
+---
+
+## 💡 Example Interactions
+
+The Coordinator automatically detects intent and routes queries to the corresponding agent:
+
+* **Resume & JD Fit**:  
+  > *"Could you evaluate my resume against this Backend Engineer job description and highlight where I fall short?"*  
+  *(Routes to `resume_analyzer`)*
+
+* **Career Role Recommendations**:  
+  > *"I know Python, Pandas, SQL, Docker, and basic ML algorithms. What tech roles best suit my skillset?"*  
+  *(Routes to `role_suggester`)*
+
+* **Mock Technical Interview**:  
+  > *"I'd like to practice for an upcoming SDE interview. Can you start a mock session?"*  
+  *(Routes to `interview_coach`)*
+
+---
+
+## 🚀 Running the Project
+
+The system is executed using Google ADK's CLI from the project root:
+
+* **Web Console (Recommended)**:
   ```bash
-  gcloud storage buckets create gs://YOUR_BUCKET_NAME --location=us-central1
+  adk web --port 8001 .
   ```
+  Opens at `http://127.0.0.1:8001` with a conversational UI, dynamic agent graph visualizer, and event/trace inspector.
 
-### Setup
+* **Terminal Chat**:
+  ```bash
+  adk run .
+  ```
+  Runs an interactive command-line chat session against the coordinator.
 
-```bash
-uv pip install "google-cloud-aiplatform[adk,agent_engines]"
-```
+* **REST API Service**:
+  ```bash
+  adk api_server --port 8000 .
+  ```
+  Exposes the multi-agent graph via HTTP/REST endpoints at `http://127.0.0.1:8000` with session persistence and streaming support (`/run`, `/run_sse`).
 
-In `.env`, set:
-
-```dotenv
-GOOGLE_GENAI_USE_VERTEXAI=TRUE
-GOOGLE_CLOUD_PROJECT="your-project-id"
-GOOGLE_CLOUD_LOCATION="us-central1"
-GOOGLE_CLOUD_STAGING_BUCKET="your-bucket-name"
-```
-
-### Deploy
-
-```bash
-python deploy/deploy_agent_engine.py
-```
-
-On success it prints a resource name — paste it into `.env` as `AGENT_ENGINE_RESOURCE_NAME`.
-
-### Test the deployment
-
-```bash
-python deploy/query_agent_engine.py
-```
-
-A terminal chat against the *deployed* agent (not your local one).
-
-### Delete it when you're done
-
-```bash
-python deploy/delete_agent_engine.py
-```
-
-**Agent Engine bills for model calls and management overhead even when idle.** Delete the resource after testing rather than leaving it deployed indefinitely.
+> **Port Allocation Tip**: ADK defaults to port `8000`. Running the web console on `--port 8001` allows running both the web interface and the REST API server (`8000`) concurrently without port conflicts.
 
 ---
 
-## Troubleshooting
+## 🛠️ Tools & Supporting Modules
 
-<details>
-<summary><b>Error: <code>GOOGLE_API_KEY environment variable is not set</code></b></summary>
+| Module / Tool | Type | Description |
+| :--- | :--- | :--- |
+| **`compare_resume_jd`** | LLM Tool | Analyzes resume text against a job description using Gemini and returns structured JSON with skill overlaps, gaps, and match verdict. |
+| **`match_roles_to_skills`** | Algorithmic Tool | Scores and ranks candidate skills against static role definitions with weighted scoring formulas. |
+| **`get_interview_question`** | Retrieval Tool | Fetches role-specific technical questions, hints, and scoring keywords indexed by category and sequence number. |
+| **`extract_resume_text`** | Document Parser | Multi-format parser capable of extracting and sanitizing text from `.pdf`, `.docx`, `.txt`, and `.md` resume files (up to 5 MB). |
 
-You haven't created `.env`, or it's empty. Run `cp .env.example .env` and paste your key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+---
 
-</details>
+## 📂 Project Structure
 
-<details>
-<summary><b>Error: <code>404 NOT_FOUND ... no longer available to new users</code></b></summary>
+```
+placement_multiagent_sys_template/
+├── agent.py                            # Top-level ADK entry point exposing root_agent
+├── requirements.txt                    # Project dependencies (Google ADK, GenAI SDK, document parsers)
+├── README.md                           # Project documentation
+└── placement_agent/                    # Core placement agent package
+    ├── __init__.py
+    ├── config.py                       # Central configuration (Model specifications & Agent specs)
+    ├── coordinator.py                  # Placement Coordinator definition & agent routing graph
+    ├── agents/                         # Specialist sub-agents
+    │   ├── __init__.py
+    │   ├── resume_analyzer.py          # Resume evaluation and skill gap specialist
+    │   ├── role_suggester.py           # Skill-to-role matching and recommendation specialist
+    │   └── interview_coach.py          # Interactive mock interview mentor
+    ├── tools/                          # ADK agent tools and extraction utilities
+    │   ├── __init__.py
+    │   ├── compare_resume_jd.py        # Gemini-powered resume vs JD comparator
+    │   ├── match_roles_to_skills.py    # Algorithmic role matching engine
+    │   ├── interview_questions.py      # Question bank retriever
+    │   └── resume_parser.py            # PDF/DOCX/TXT file text extraction utility
+    └── data/                           # Curated domain knowledge bases
+        ├── interview_question_bank.json # Question bank across 6 technical and behavioral tracks
+        └── role_skill_map.json          # Required and preferred skill mappings for 10 tech roles
+```
 
-You changed `MODEL_NAME` in `placement_agent/config.py` to a retired model (e.g. `gemini-2.5-flash`). This is a Google account-level block, not a bug. Set `MODEL_NAME` back to `gemini-flash-lite-latest`.
+---
 
-</details>
+## 💻 Tech Stack & Design Specifications
 
-<details>
-<summary><b>Error: <code>429 RESOURCE_EXHAUSTED ... generate_content_free_tier_requests</code></b></summary>
-
-You've hit the free-tier daily request cap for the model. Options:
-1. Wait for the quota to reset (resets at midnight Pacific time)
-2. Enable billing on your AI Studio project for higher limits
-3. Keep `MODEL_NAME` on a lite model, which has a higher free-tier ceiling than flagship models
-
-</details>
-
-<details>
-<summary><b><code>adk</code>: command not found</b></summary>
-
-The `adk` CLI ships with the `google-adk` package and lands on your `PATH` once your virtualenv is activated (`source .venv/bin/activate`). If it's still missing, reinstall with `uv pip install google-adk` inside the active venv.
-
-</details>
-
-<details>
-<summary><b>IDE shows "Cannot find module google.adk.agents"</b></summary>
-
-Your editor's language server is pointed at a different Python interpreter than this project's `.venv`. Point your IDE's interpreter at `.venv/bin/python` — it doesn't affect actually running the project.
-
-</details>
+* **Agent Orchestration**: [Google Agent Development Kit (ADK)](https://github.com/google/adk)
+* **LLM Engine**: Google Gemini (`gemini-flash-lite-latest` via Google GenAI SDK)
+* **Document Processing**: `pypdf`, `python-docx`
+* **Knowledge Store**: Structured JSON schemas for role matrices and interview banks
+* **Interaction Interfaces**: ADK Web Console (graph visualizer & trace inspector), CLI terminal chat, and REST/SSE API endpoints
